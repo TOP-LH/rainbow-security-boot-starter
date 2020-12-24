@@ -1,5 +1,6 @@
 package com.rainbow.security.propertie;
 
+import com.rainbow.security.enums.SecurityCacheTypeEnum;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -19,9 +20,19 @@ public class RainbowSecurityProperties {
     private String tokenName = "rainbowSecurity";
 
     /**
+     * 缓存方式（基于redis还是session），默认基于redis
+     */
+    private SecurityCacheTypeEnum securityCacheType = SecurityCacheTypeEnum.SPRING_REDIS_TEMPLATE;
+
+    /**
      * token有效期，单位s 默认1天
      */
     private long timeout = 24 * 60 * 60;
+
+    /**
+     * 记住我的过期时间，默认7天
+     */
+    private long rememberMeTimeout = 60 * 60 * 24 * 7;
 
     /**
      * 在多人登录同一账号时，是否共享会话 (为true时共用一个，为false时新登录挤掉旧登录)

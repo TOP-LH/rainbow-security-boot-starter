@@ -1,6 +1,6 @@
 package com.rainbow.security.util;
 
-import com.rainbow.security.constant.SecurityConstants;
+import com.rainbow.security.constant.SecurityCodeConstants;
 import com.rainbow.security.enums.RainbowSecurityEnum;
 import com.rainbow.security.exception.AdminMandatoryLogout;
 import com.rainbow.security.exception.MandatoryLogout;
@@ -29,11 +29,11 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RainbowSecurityUtils {
 
-    private static RedisTemplate redisTemplate;
+    private static RedisTemplate<String, Object> redisTemplate;
     private static RainbowSecurityProperties rainbowSecurityConfig;
 
     @Autowired
-    public void setRedisCacheTemplate(RedisTemplate redisTemplate) {
+    public void setRedisCacheTemplate(RedisTemplate<String, Object> redisTemplate) {
         // 解决redis乱码的问题
         RedisSerializer stringSerializer = new StringRedisSerializer();
         redisTemplate.setKeySerializer(stringSerializer);
@@ -51,11 +51,25 @@ public class RainbowSecurityUtils {
     /**
      * 执行登陆方法
      *
-     * @param loginID 登录人的唯一标示
-     * @param load    负载因素
+     * @param loginID    登录人的唯一标示
+     * @param rememberMe 是否需要开启记住我
      * @return token
      */
-    public static String login(String loginID, Object load) {
+    public static String login(String loginID, Boolean rememberMe) {
+        // 先判断此loginID是否登录
+
+
+
+
+
+
+
+
+
+
+
+
+
         // 生成一个token
         String token = generateToken();
         // 根据loginID判断该用户是否已经登陆
@@ -105,6 +119,30 @@ public class RainbowSecurityUtils {
         return token;
     }
 
+    /**
+     * 根据loginID将对应的数据缓存起来
+     *
+     * @param loginID
+     * @param load
+     */
+    public static void setDataByLoginID(String loginID, Object load) {
+        redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load);
+    }
+
+    /**
+     * 根据loginID获取他对于的缓存
+     *
+     * @param loginID
+     */
+    public static Object getDataByLoginID(String loginID) {
+        // 判断loginID是否无异常
+        String token = byLoginIDGetToken(loginID);
+        if (!StringUtils.isEmpty(token)) {
+            return redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID + ":data");
+        }
+        redisTemplate.delete(getRedisSecurityPrefix() + loginID + ":data");
+        throw new TokenTimeOutException("该loginID登录时效已过期，请重新登录");
+    }
 
     /**
      * 用户注销
@@ -221,11 +259,11 @@ public class RainbowSecurityUtils {
                 throw new TokenTimeOutException(RainbowSecurityEnum.TOKEN_TIME_OUT.getDetailMessage());
             }
             // 根据状态码判断是否被挤下线
-            if (SecurityConstants.OF_LOGOUT.equals(loginID)) {
+            if (SecurityCodeConstants.OF_LOGOUT.equals(loginID)) {
                 throw new MandatoryLogout(RainbowSecurityEnum.MANDATORY_LOGOUT.getDetailMessage());
             }
             // 根据状态码判断是否被管理员强退
-            if (SecurityConstants.MANDATORY_LOGOUT_OUT.equals(loginID)) {
+            if (SecurityCodeConstants.MANDATORY_LOGOUT_OUT.equals(loginID)) {
                 throw new AdminMandatoryLogout(RainbowSecurityEnum.ADMIN_MANDATORY_LOGOUT.getDetailMessage());
             }
             return loginID;

@@ -6,7 +6,7 @@ package com.rainbow.security.constant;
  * @author lihao3
  * @Date 2020/12/23 15:53
  */
-public interface SecurityConstants {
+public interface SecurityCodeConstants {
 
     /**
      * 没token返回的状态码
