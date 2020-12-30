@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * 自动装配类
+ *
  * @author lihao3
  * @Date 2020/12/23 11:27
  */
@@ -25,9 +27,17 @@ public class RainbowSecurityAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RainbowSecurityAspect rainbowSecurityAspect() {
-        log.info("rainbow-security开始初始化");
         RainbowSecurityAspect rainbowSecurityAspect = new RainbowSecurityAspect();
-        log.info("rainbow-security初始化完成");
+        log.info("\n" +
+                "            _       _                                                   _ _         \n" +
+                "           (_)     | |                                                 (_) |        \n" +
+                "  _ __ __ _ _ _ __ | |__   _____      ________ ___  ___  ___ _   _ _ __ _| |_ _   _ \n" +
+                " | '__/ _` | | '_ \\| '_ \\ / _ \\ \\ /\\ / /______/ __|/ _ \\/ __| | | | '__| | __| | | |\n" +
+                " | | | (_| | | | | | |_) | (_) \\ V  V /       \\__ \\  __/ (__| |_| | |  | | |_| |_| |\n" +
+                " |_|  \\__,_|_|_| |_|_.__/ \\___/ \\_/\\_/        |___/\\___|\\___|\\__,_|_|  |_|\\__|\\__, |\n" +
+                "                                                                               __/ |\n" +
+                "                                                                              |___/ \n" +
+                " : : rainbow-security : :                                           (v1.0.0-SNAPSHOT)");
         return rainbowSecurityAspect;
     }
 

@@ -10,8 +10,6 @@ import com.rainbow.security.propertie.RainbowSecurityProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.RedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -34,12 +32,6 @@ public class RainbowSecurityUtils {
 
     @Autowired
     public void setRedisCacheTemplate(RedisTemplate redisTemplate) {
-        // 解决redis乱码的问题
-        RedisSerializer stringSerializer = new StringRedisSerializer();
-        redisTemplate.setKeySerializer(stringSerializer);
-        redisTemplate.setValueSerializer(stringSerializer);
-        redisTemplate.setHashKeySerializer(stringSerializer);
-        redisTemplate.setHashValueSerializer(stringSerializer);
         RainbowSecurityUtils.redisTemplate = redisTemplate;
     }
 
@@ -171,8 +163,8 @@ public class RainbowSecurityUtils {
         String tokenName = rainbowSecurityConfig.getTokenName();
 
         // 1.尝试从header中获取token
-        if (rainbowSecurityConfig.getIsReadBody() == true) {
-            String tokenValue = request.getParameter(tokenName);
+        if (rainbowSecurityConfig.getIsReadHead() == true) {
+            String tokenValue = request.getHeader(tokenName);
             if (StringUtils.isEmpty(tokenValue)) {
                 return null;
             }
@@ -191,7 +183,7 @@ public class RainbowSecurityUtils {
             return null;
         }
         // 3.常使用请求体中获取token
-        if (rainbowSecurityConfig.getIsReadHead() == true) {
+        if (rainbowSecurityConfig.getIsReadBody() == true) {
             Object requestToken = request.getAttribute(tokenName);
             if (StringUtils.isEmpty(requestToken)) {
                 return null;
@@ -230,6 +222,31 @@ public class RainbowSecurityUtils {
             }
             return loginID;
         }
+    }
+
+    /**
+     * 根据loginID将对应的数据缓存起来
+     *
+     * @param loginID
+     * @param load
+     */
+    public static void setDataByLoginID(String loginID, Object load) {
+        redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load);
+    }
+
+    /**
+     * 根据loginID获取他对于的缓存
+     *
+     * @param loginID
+     */
+    public static Object getDataByLoginID(String loginID) {
+        // 判断loginID是否无异常
+        String token = byLoginIDGetToken(loginID);
+        if (!StringUtils.isEmpty(token)) {
+            return redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID + ":data");
+        }
+        redisTemplate.delete(getRedisSecurityPrefix() + loginID + ":data");
+        throw new TokenTimeOutException("该loginID登录时效已过期，请重新登录");
     }
 
     /**
