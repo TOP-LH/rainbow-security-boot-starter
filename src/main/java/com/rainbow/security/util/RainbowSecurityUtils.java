@@ -20,6 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * 权限控制工具类
+ *
  * @author lihao3
  * @Date 2020/12/23 10:41
  */
@@ -44,10 +46,9 @@ public class RainbowSecurityUtils {
      * 执行登陆方法
      *
      * @param loginID 登录人的唯一标示
-     * @param load    负载因素
      * @return token
      */
-    public static String login(String loginID, Object load) {
+    public static String login(String loginID) {
         // 生成一个token
         String token = generateToken();
         // 根据loginID判断该用户是否已经登陆
@@ -113,6 +114,8 @@ public class RainbowSecurityUtils {
         delCookieToken();
     }
 
+    
+
     /**
      * 判断当前回话是否登录
      *
@@ -145,6 +148,9 @@ public class RainbowSecurityUtils {
     public static String byTokenGetLoginID(String token) {
         Object loginID = redisTemplate.opsForValue().get(getRedisSecurityPrefix() + token);
         if (StringUtils.isEmpty(loginID)) {
+            return null;
+        }
+        if (loginID.toString() == SecurityConstants.OF_LOGOUT || loginID.toString() == SecurityConstants.MANDATORY_LOGOUT_OUT) {
             return null;
         }
         return loginID.toString();
@@ -227,26 +233,41 @@ public class RainbowSecurityUtils {
     /**
      * 根据loginID将对应的数据缓存起来
      *
-     * @param loginID
-     * @param load
+     * @param loginID 用户唯一标识
+     * @param key     数据对应的key,如果为空则使用loginID作为key
+     * @param load    存储的数据
      */
-    public static void setDataByLoginID(String loginID, Object load) {
-        redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load);
+    public static void setDataByLoginID(String loginID, String key, Object load) {
+        // 判断key是否为空
+        if (StringUtils.isEmpty(key)) {
+            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load,
+                    rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+        } else {
+            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data:" + key, load,
+                    rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+        }
     }
 
     /**
      * 根据loginID获取他对于的缓存
      *
-     * @param loginID
+     * @param loginID 用户唯一标识
+     * @param key     数据对应的key,如果为空则使用loginID作为key
      */
-    public static Object getDataByLoginID(String loginID) {
+    public static Object getDataByLoginID(String loginID, String key) {
         // 判断loginID是否无异常
         String token = byLoginIDGetToken(loginID);
-        if (!StringUtils.isEmpty(token)) {
-            return redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID + ":data");
+        if (StringUtils.isEmpty(token)) {
+            redisTemplate.delete(getRedisSecurityPrefix() + loginID + ":data");
+            redisTemplate.delete(getRedisSecurityPrefix() + loginID + ":data:" + key);
+            throw new TokenTimeOutException("该loginID登录时效已过期，请重新登录");
         }
-        redisTemplate.delete(getRedisSecurityPrefix() + loginID + ":data");
-        throw new TokenTimeOutException("该loginID登录时效已过期，请重新登录");
+        // 判断key是否为空
+        if (StringUtils.isEmpty(key)) {
+            return redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID + ":data");
+        } else {
+            return redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID + ":data:" + key);
+        }
     }
 
     /**

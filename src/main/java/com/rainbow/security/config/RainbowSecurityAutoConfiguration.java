@@ -37,7 +37,7 @@ public class RainbowSecurityAutoConfiguration {
                 " |_|  \\__,_|_|_| |_|_.__/ \\___/ \\_/\\_/        |___/\\___|\\___|\\__,_|_|  |_|\\__|\\__, |\n" +
                 "                                                                               __/ |\n" +
                 "                                                                              |___/ \n" +
-                " : : rainbow-security : :                                           (v1.0.0-SNAPSHOT)");
+                " : : rainbow-security : :                                         (v{})","1.0.2");
         return rainbowSecurityAspect;
     }
 
