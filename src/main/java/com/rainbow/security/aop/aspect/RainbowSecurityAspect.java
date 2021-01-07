@@ -106,6 +106,7 @@ public class RainbowSecurityAspect {
      * 是否存在权限标识注解，如果存在就获取
      */
     private RainbowCheckRoles getAnnotationRainbowCheckRoles(JoinPoint joinPoint) {
+
         Signature signature = joinPoint.getSignature();
         MethodSignature methodSignature = (MethodSignature) signature;
         Method method = methodSignature.getMethod();

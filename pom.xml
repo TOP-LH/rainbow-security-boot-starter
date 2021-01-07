@@ -49,10 +49,11 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- 阿里JSON解析器 -->
         <dependency>
-            <groupId>de.svenkubiak</groupId>
-            <artifactId>jBCrypt</artifactId>
-            <version>0.4.3</version>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.9</version>
         </dependency>
 
     </dependencies>
