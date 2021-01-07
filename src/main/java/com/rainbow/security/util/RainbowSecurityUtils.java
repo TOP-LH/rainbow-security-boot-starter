@@ -2,13 +2,14 @@ package com.rainbow.security.util;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.rainbow.security.constant.SecurityConstants;
+import com.rainbow.security.constant.SecurityCodeConstants;
 import com.rainbow.security.enums.RainbowSecurityEnum;
 import com.rainbow.security.exception.AdminMandatoryLogout;
 import com.rainbow.security.exception.MandatoryLogout;
 import com.rainbow.security.exception.NoTokenException;
 import com.rainbow.security.exception.TokenTimeOutException;
 import com.rainbow.security.propertie.RainbowSecurityProperties;
+import com.rainbow.security.service.RainbowTokenService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -21,7 +22,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,7 +37,7 @@ public class RainbowSecurityUtils {
     private static StringRedisTemplate stringRedisTemplate;
     private static RedisTemplate redisTemplate;
     private static RainbowSecurityProperties rainbowSecurityConfig;
-
+    private static RainbowTokenService rainbowJwtService;
 
     @Autowired
     public void setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
@@ -54,15 +54,21 @@ public class RainbowSecurityUtils {
         RainbowSecurityUtils.rainbowSecurityConfig = rainbowSecurityConfig;
     }
 
+    @Autowired
+    public static void setRainbowJwtService(RainbowTokenService rainbowJwtService) {
+        RainbowSecurityUtils.rainbowJwtService = rainbowJwtService;
+    }
+
     /**
      * 执行登陆方法
      *
      * @param loginID 登录人的唯一标示
+     * @param load    生成JWT的负载因素，若不需要则直接填null即可
      * @return token
      */
-    public static String login(String loginID) {
+    public static String login(String loginID, Object load) {
         // 生成一个token
-        String token = generateToken();
+        String token = rainbowJwtService.generateToken(load);
         // 根据loginID判断该用户是否已经登陆
         String oldToken = byLoginIDGetToken(loginID);
         // 如果token不为空则代表已登录
@@ -137,7 +143,7 @@ public class RainbowSecurityUtils {
         if (!StringUtils.isEmpty(token)) {
             // 修改数据
             Long expire = redisTemplate.getExpire(getRedisSecurityPrefix() + token);
-            stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, SecurityConstants.MANDATORY_LOGOUT_OUT,
+            stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, SecurityCodeConstants.MANDATORY_LOGOUT_OUT,
                     expire, TimeUnit.SECONDS);
             // 删除用户对应的信息
             Set<String> keys = redisTemplate.keys(getRedisSecurityPrefix() + loginID + "*");
@@ -182,7 +188,7 @@ public class RainbowSecurityUtils {
         if (StringUtils.isEmpty(loginID)) {
             return null;
         }
-        if (loginID.toString() == SecurityConstants.OF_LOGOUT || loginID.toString() == SecurityConstants.MANDATORY_LOGOUT_OUT) {
+        if (loginID.toString() == SecurityCodeConstants.OF_LOGOUT || loginID.toString() == SecurityCodeConstants.MANDATORY_LOGOUT_OUT) {
             return null;
         }
         return loginID.toString();
@@ -251,11 +257,11 @@ public class RainbowSecurityUtils {
                 throw new TokenTimeOutException(RainbowSecurityEnum.TOKEN_TIME_OUT.getDetailMessage());
             }
             // 根据状态码判断是否被挤下线
-            if (SecurityConstants.OF_LOGOUT.equals(loginID)) {
+            if (SecurityCodeConstants.OF_LOGOUT.equals(loginID)) {
                 throw new MandatoryLogout(RainbowSecurityEnum.MANDATORY_LOGOUT.getDetailMessage());
             }
             // 根据状态码判断是否被管理员强退
-            if (SecurityConstants.MANDATORY_LOGOUT_OUT.equals(loginID)) {
+            if (SecurityCodeConstants.MANDATORY_LOGOUT_OUT.equals(loginID)) {
                 throw new AdminMandatoryLogout(RainbowSecurityEnum.ADMIN_MANDATORY_LOGOUT.getDetailMessage());
             }
             return loginID;
@@ -319,18 +325,6 @@ public class RainbowSecurityUtils {
      */
     private static String getRedisSecurityPrefix() {
         return rainbowSecurityConfig.getTokenName() + ":loginID:";
-    }
-
-    /**
-     * 生成新的token
-     *
-     * @return token
-     */
-    private static String generateToken() {
-        String uuid = UUID.randomUUID().toString();
-        int salt = (int) (Math.random() * 10000);
-        String token = uuid + "-" + salt;
-        return token;
     }
 
     /**

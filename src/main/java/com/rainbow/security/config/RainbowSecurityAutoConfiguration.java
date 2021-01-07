@@ -2,7 +2,9 @@ package com.rainbow.security.config;
 
 import com.rainbow.security.propertie.RainbowSecurityProperties;
 import com.rainbow.security.service.RainbowSecurityService;
+import com.rainbow.security.service.RainbowTokenService;
 import com.rainbow.security.service.impl.RainbowSecurityServiceImpl;
+import com.rainbow.security.service.impl.RainbowTokenDefaultServiceImpl;
 import com.rainbow.security.util.RainbowSecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,5 +45,11 @@ public class RainbowSecurityAutoConfiguration {
     @ConditionalOnMissingBean(RainbowSecurityService.class)
     public RainbowSecurityServiceImpl rainbowSecurityServiceImpl() {
         return new RainbowSecurityServiceImpl();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(RainbowTokenService.class)
+    public RainbowTokenDefaultServiceImpl rainbowTokenDefaultService() {
+        return new RainbowTokenDefaultServiceImpl();
     }
 }
