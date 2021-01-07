@@ -1,6 +1,5 @@
 package com.rainbow.security.config;
 
-import com.rainbow.security.aop.aspect.RainbowSecurityAspect;
 import com.rainbow.security.propertie.RainbowSecurityProperties;
 import com.rainbow.security.service.RainbowSecurityService;
 import com.rainbow.security.service.impl.RainbowSecurityServiceImpl;
@@ -26,8 +25,7 @@ public class RainbowSecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public RainbowSecurityAspect rainbowSecurityAspect() {
-        RainbowSecurityAspect rainbowSecurityAspect = new RainbowSecurityAspect();
+    public RainbowSecurityUtils rainbowSecurityUtils() {
         log.info("\n" +
                 "            _       _                                                   _ _         \n" +
                 "           (_)     | |                                                 (_) |        \n" +
@@ -37,13 +35,7 @@ public class RainbowSecurityAutoConfiguration {
                 " |_|  \\__,_|_|_| |_|_.__/ \\___/ \\_/\\_/        |___/\\___|\\___|\\__,_|_|  |_|\\__|\\__, |\n" +
                 "                                                                               __/ |\n" +
                 "                                                                              |___/ \n" +
-                " : : rainbow-security : :                                         (v{})","1.0.2");
-        return rainbowSecurityAspect;
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public RainbowSecurityUtils rainbowSecurityUtils() {
+                " : : rainbow-security : :                                         (v{})", "1.0.0-SNAPSHOT");
         return new RainbowSecurityUtils();
     }
 

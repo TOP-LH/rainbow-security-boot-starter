@@ -1,5 +1,7 @@
 package com.rainbow.security.util;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.rainbow.security.constant.SecurityConstants;
 import com.rainbow.security.enums.RainbowSecurityEnum;
 import com.rainbow.security.exception.AdminMandatoryLogout;
@@ -10,12 +12,15 @@ import com.rainbow.security.propertie.RainbowSecurityProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -29,8 +34,15 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RainbowSecurityUtils {
 
+    private static StringRedisTemplate stringRedisTemplate;
     private static RedisTemplate redisTemplate;
     private static RainbowSecurityProperties rainbowSecurityConfig;
+
+
+    @Autowired
+    public void setStringRedisTemplate(StringRedisTemplate stringRedisTemplate) {
+        RainbowSecurityUtils.stringRedisTemplate = stringRedisTemplate;
+    }
 
     @Autowired
     public void setRedisCacheTemplate(RedisTemplate redisTemplate) {
@@ -61,11 +73,11 @@ public class RainbowSecurityUtils {
             if (!isShare) {
                 // 将旧token状态修改为失效
                 Long oldTokenExpireTime = redisTemplate.getExpire(getRedisSecurityPrefix() + token, TimeUnit.SECONDS);
-                redisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, RainbowSecurityEnum.MANDATORY_LOGOUT.getMessageCode(),
+                stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, RainbowSecurityEnum.MANDATORY_LOGOUT.getMessageCode(),
                         oldTokenExpireTime, TimeUnit.SECONDS);
                 // 将loginID对应的token修改为新的token
                 Long loginIDExpireTime = redisTemplate.getExpire(getRedisSecurityPrefix() + loginID, TimeUnit.SECONDS);
-                redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID, token, loginIDExpireTime, TimeUnit.SECONDS);
+                stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID, token, loginIDExpireTime, TimeUnit.SECONDS);
                 // 判断是否需要根据cookie中的token登录
                 if (rainbowSecurityConfig.getIsReadCookie()) {
                     // 获取当前会话的上下文
@@ -81,9 +93,9 @@ public class RainbowSecurityUtils {
             }
         } else {
             // 如果未登录则将数据缓存起来
-            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, loginID,
+            stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, loginID,
                     rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
-            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID, token, rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID, token, rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
             // 判断是否需要根据cookie判断是否登录
             // 如果需要则将token放到cookie中
             if (rainbowSecurityConfig.getIsReadCookie()) {
@@ -108,13 +120,33 @@ public class RainbowSecurityUtils {
         // 根据loginID获取token
         String token = byLoginIDGetToken(loginID);
         // 删除redis缓存
-        redisTemplate.delete(getRedisSecurityPrefix() + loginID);
-        redisTemplate.delete(getRedisSecurityPrefix() + token);
+        stringRedisTemplate.delete(getRedisSecurityPrefix() + token);
+        Set<String> keys = redisTemplate.keys(getRedisSecurityPrefix() + loginID + "*");
+        redisTemplate.delete(keys);
         // 删除cookie缓存
         delCookieToken();
     }
 
-    
+    /**
+     * 强T loginID用户
+     *
+     * @param loginID
+     */
+    public static void forceLogout(String loginID) {
+        String token = byLoginIDGetToken(loginID);
+        if (!StringUtils.isEmpty(token)) {
+            // 修改数据
+            Long expire = redisTemplate.getExpire(getRedisSecurityPrefix() + token);
+            stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + token, SecurityConstants.MANDATORY_LOGOUT_OUT,
+                    expire, TimeUnit.SECONDS);
+            // 删除用户对应的信息
+            Set<String> keys = redisTemplate.keys(getRedisSecurityPrefix() + loginID + "*");
+            redisTemplate.delete(keys);
+            // 删除cookie缓存
+            delCookieToken();
+        }
+
+    }
 
     /**
      * 判断当前回话是否登录
@@ -132,7 +164,7 @@ public class RainbowSecurityUtils {
      * @return
      */
     public static String byLoginIDGetToken(String loginID) {
-        Object token = redisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID);
+        Object token = stringRedisTemplate.opsForValue().get(getRedisSecurityPrefix() + loginID);
         if (StringUtils.isEmpty(token)) {
             return null;
         }
@@ -146,7 +178,7 @@ public class RainbowSecurityUtils {
      * @return
      */
     public static String byTokenGetLoginID(String token) {
-        Object loginID = redisTemplate.opsForValue().get(getRedisSecurityPrefix() + token);
+        Object loginID = stringRedisTemplate.opsForValue().get(getRedisSecurityPrefix() + token);
         if (StringUtils.isEmpty(loginID)) {
             return null;
         }
@@ -240,11 +272,21 @@ public class RainbowSecurityUtils {
     public static void setDataByLoginID(String loginID, String key, Object load) {
         // 判断key是否为空
         if (StringUtils.isEmpty(key)) {
-            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load,
-                    rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            if (isJSONString(load)) {
+                redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load,
+                        rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            } else {
+                stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data", load.toString(),
+                        rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            }
         } else {
-            redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data:" + key, load,
-                    rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            if (isJSONString(load)) {
+                redisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data:" + key, load,
+                        rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            } else {
+                stringRedisTemplate.opsForValue().set(getRedisSecurityPrefix() + loginID + ":data:" + key, load.toString(),
+                        rainbowSecurityConfig.getTimeout(), TimeUnit.SECONDS);
+            }
         }
     }
 
@@ -291,9 +333,52 @@ public class RainbowSecurityUtils {
         return token;
     }
 
+    /**
+     * 删除cookie中的权限标识
+     */
     private static void delCookieToken() {
         HttpServletRequest request = HttpContextUtils.getHttpServletRequest();
         HttpServletResponse response = HttpContextUtils.getHttpServletResponse();
         CookieUtils.delCookie(request, response, rainbowSecurityConfig.getTokenName());
+    }
+
+
+    /**
+     * 判断object是否可以转化为json字符串
+     *
+     * @param load
+     * @return
+     */
+    private static boolean isJSONString(Object load) {
+        if (isEmpty(load)) {
+            return false;
+        }
+        if (load instanceof List) {
+            return true;
+        }
+        String jsonString = JSON.toJSONString(load);
+        if (!jsonString.startsWith("{") && !jsonString.endsWith("}")) {
+            return false;
+        }
+        try {
+            JSONObject.parse(jsonString);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean isEmpty(Object obj) {
+        //Object类型判空是和null进行对比
+        if (obj == null) {
+            return true;
+        }
+        if ((obj instanceof List)) {
+            return ((List) obj).size() == 0;
+        }
+        if ((obj instanceof String)) {
+            return StringUtils.isEmpty((String) obj);
+        }
+        return false;
     }
 }
