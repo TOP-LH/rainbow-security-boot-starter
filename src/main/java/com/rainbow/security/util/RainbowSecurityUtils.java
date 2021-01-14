@@ -368,6 +368,12 @@ public class RainbowSecurityUtils {
         }
     }
 
+    /**
+     * 判断object类型是否为空
+     *
+     * @param obj
+     * @return
+     */
     private static boolean isEmpty(Object obj) {
         //Object类型判空是和null进行对比
         if (obj == null) {
